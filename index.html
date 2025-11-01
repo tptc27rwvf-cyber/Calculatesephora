@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de Precios UltraShopper</title>
+  <meta name="description" content="Calcula tax (7%) y comisión ($2 por ítem) de manera instantánea.">
+  <style>
+    :root{
+      --bg:#ffffff;
+      --card:#ffffff;
+      --ink:#1f1f1f;
+      --muted:#6b6b6b;
+      --accent:#cc2b33; /* rojo */
+      --accent-2:#c18f3a; /* ocre */
+      --line:#ececec;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+    .wrap{max-width:960px;margin:28px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand .logo{width:12px;height:28px;background:linear-gradient(180deg,var(--accent),var(--accent-2));border-radius:3px}
+    h1{font-size:1.35rem;margin:0;letter-spacing:.2px}
+    .sub{font-size:.9rem;color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.04)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr} header{flex-direction:column;align-items:flex-start}}
+    label{display:block;font-size:.9rem;margin:0 0 6px 2px;color:var(--muted)}
+    input{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;font-size:1rem}
+    input[type="number"]{appearance:textfield}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e7e7e7;border-radius:12px;background:#fafafa;font-size:.92rem;user-select:none}
+    .chip input{width:auto}
+    .section-title{margin:14px 2px 8px;font-weight:700;color:#333}
+    .totals{margin-top:10px;border-top:2px solid var(--line);padding-top:12px}
+    .totals .line{display:flex;justify-content:space-between;margin:6px 0}
+    .totals .grand{font-weight:800;font-size:1.15rem;color:var(--accent)}
+    .btn{appearance:none;border:0;border-radius:12px;padding:12px 14px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;cursor:pointer}
+    .note{font-size:.85rem;color:var(--muted)}
+    .footer{margin-top:14px;color:#888;font-size:.85rem}
+    .hidden{display:none}
+    .right{text-align:right}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Calculadora de Precios UltraShopper</h1>
+          <div class="sub">@UltraShopperHN · Funciona offline</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label for="precio">Precio base (USD)</label>
+          <input id="precio" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ej. 24.99">
+        </div>
+        <div>
+          <label for="cantidad">Cantidad</label>
+          <input id="cantidad" type="number" inputmode="numeric" min="1" step="1" value="1">
+        </div>
+
+        <div>
+          <label for="impuesto">% de impuesto (tax)</label>
+          <input id="impuesto" type="number" inputmode="decimal" min="0" step="0.01" value="7">
+          <div class="note">Por defecto 7%.</div>
+        </div>
+        <div>
+          <label>Tipo de comisión</label>
+          <div class="row">
+            <label class="chip"><input type="radio" name="tipoComision" value="fija" checked> Fija ($) — <span id="cfLabel">2.00</span></label>
+            <label class="chip"><input type="radio" name="tipoComision" value="porcentaje"> % del precio</label>
+          </div>
+        </div>
+
+        <div id="comisionFijaWrap">
+          <label for="comisionFija">Comisión fija por ítem (USD)</label>
+          <input id="comisionFija" type="number" inputmode="decimal" min="0" step="0.01" value="2">
+          <div class="note">Por defecto $2 por producto.</div>
+        </div>
+
+        <div id="comisionPctWrap" class="hidden">
+          <label for="comisionPct">Comisión (% del precio)</label>
+          <input id="comisionPct" type="number" inputmode="decimal" min="0" step="0.01" value="10">
+        </div>
+      </div>
+
+      <div class="section-title">Exenciones / reglas rápidas</div>
+      <div class="row">
+        <label class="chip"><input type="checkbox" id="exentoTax"> Exento de tax</label>
+        <label class="chip"><input type="checkbox" id="exentoComision"> Exento de comisión</label>
+      </div>
+      <div class="note">Ejemplo: “Sephora Collection a precio de app sin tax ni comisión”.</div>
+
+      <div class="section-title">Resultado</div>
+      <div class="totals" id="resumen">
+        <div class="line"><span>Subtotal (precio × cantidad)</span><span id="subtotal" class="right">$0.00</span></div>
+        <div class="line"><span>Tax</span><span id="tax" class="right">$0.00</span></div>
+        <div class="line"><span>Comisión</span><span id="comision" class="right">$0.00</span></div>
+        <div class="line grand"><span>Total</span><span id="total" class="right">$0.00</span></div>
+      </div>
+
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="btn" id="copiar">Copiar resumen</button>
+        <button class="btn" id="compartir">Compartir resultado</button>
+      </div>
+
+      <div class="footer">© UltraShopper</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (sel)=>document.querySelector(sel);
+    const fmt = (n)=> (isFinite(n)? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n): '$0.00');
+
+    const precio = $("#precio");
+    const cantidad = $("#cantidad");
+    const impuesto = $("#impuesto");
+    const tipoRadios = document.querySelectorAll('input[name="tipoComision"]');
+    const comisionFija = $("#comisionFija");
+    const comisionPct = $("#comisionPct");
+    const exentoTax = $("#exentoTax");
+    const exentoComision = $("#exentoComision");
+    const cfLabel = $("#cfLabel");
+
+    const subtotalEl = $("#subtotal");
+    const taxEl = $("#tax");
+    const comisionEl = $("#comision");
+    const totalEl = $("#total");
+
+    const copiarBtn = $("#copiar");
+    const compartirBtn = $("#compartir");
+
+    function activeType(){
+      const tipo = document.querySelector('input[name="tipoComision"]:checked').value;
+      document.getElementById('comisionFijaWrap').classList.toggle('hidden', !(tipo==='fija'));
+      document.getElementById('comisionPctWrap').classList.toggle('hidden', !(tipo==='porcentaje'));
+    }
+
+    function calc(){
+      const p = parseFloat(precio.value) || 0;
+      const q = Math.max(1, parseInt(cantidad.value || '1',10));
+      const taxPct = parseFloat(impuesto.value) || 0;
+      const tipo = document.querySelector('input[name=\"tipoComision\"]:checked').value;
+
+      const subtotal = p * q;
+      let tax = exentoTax.checked ? 0 : subtotal * (taxPct/100);
+      let comision = 0;
+      if(!exentoComision.checked){
+        if(tipo==='fija'){
+          const cf = parseFloat(comisionFija.value)||0;
+          comision = cf * q;
+        }else{
+          const cp = (parseFloat(comisionPct.value)||0)/100;
+          comision = subtotal * cp;
+        }
+      }
+      const total = subtotal + tax + comision;
+
+      subtotalEl.textContent = fmt(subtotal);
+      taxEl.textContent = fmt(tax);
+      comisionEl.textContent = fmt(comision);
+      totalEl.textContent = fmt(total);
+      cfLabel.textContent = (parseFloat(comisionFija.value)||0).toFixed(2);
+    }
+
+    function buildSummary(){
+      return `Precio: ${precio.value||0} | Cantidad: ${cantidad.value||1}
+Impuesto: ${exentoTax.checked? 'Exento' : (impuesto.value||0)+'%'}
+Comisión: ${exentoComision.checked? 'Exento' : (document.querySelector('input[name="tipoComision"]:checked').value==='fija'
+? ('$'+(parseFloat(comisionFija.value||0).toFixed(2))+' c/u') : (parseFloat(comisionPct.value||0).toFixed(2)+'%'))}
+Subtotal: ${subtotalEl.textContent}
+Tax: ${taxEl.textContent}
+Comisión: ${comisionEl.textContent}
+TOTAL: ${totalEl.textContent}`;
+    }
+
+    async function copyText(text){
+      if (navigator.clipboard) {
+        try{ await navigator.clipboard.writeText(text); alert('Resumen copiado.'); return; }catch(e){}
+      }
+      const area = document.createElement('textarea');
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      try{ document.execCommand('copy'); alert('Resumen copiado.'); }catch(e){ alert('Copia falló, selecciónalo manualmente.');}
+      document.body.removeChild(area);
+    }
+
+    copiarBtn.addEventListener('click', async ()=> copyText(buildSummary()));
+
+    compartirBtn.addEventListener('click', async ()=>{
+      const text = buildSummary();
+      if (navigator.share){
+        try{ await navigator.share({title:'Resumen de compra', text}); return; }catch(e){}
+      }
+      copyText(text);
+    });
+
+    [precio,cantidad,impuesto,comisionFija,comisionPct,exentoTax,exentoComision].forEach(el=>{
+      el.addEventListener('input', calc);
+      el.addEventListener('change', calc);
+    });
+    document.querySelectorAll('input[name="tipoComision"]').forEach(r=>r.addEventListener('change', ()=>{activeType(); calc();}));
+
+    // Inicial
+    activeType();
+    calc();
+  </script>
+</body>
+</html>
